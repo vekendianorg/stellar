@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(Stellar LANGUAGES CXX VERSION 1.2.0)
+project(Stellar LANGUAGES CXX VERSION 1.0.0)
 
 # ---------------------------------------------------------------------------
 # Stellar -- native ELF/DWARF dumper
