@@ -807,7 +807,7 @@ STELLAR_TEST(Tui, SettingsSurviveTheApplyKey) {
   const std::string cfg = (tmp_base / "stellar-config-survive").string();
   std::error_code ec_rm;
   std::filesystem::remove(cfg, ec_rm);
-  setenv("STELLAR_CONFIG", cfg.c_str(), 1);
+  stellar::test::setenv_for_test("STELLAR_CONFIG", cfg.c_str());
   App app;
   app.set_tree_options_for_test(1, true, true, "/proj/src", "/toolchain");
   // Open the screen the way a user does, so the test drives the same handler
@@ -821,7 +821,7 @@ STELLAR_TEST(Tui, SettingsSurviveTheApplyKey) {
   std::filesystem::remove(cfg, ec_rm);
   std::filesystem::path missing = std::filesystem::temp_directory_path(ec_tmp);
   if (ec_tmp || !std::filesystem::is_directory(missing, ec_tmp)) missing = "/tmp";
-  setenv("STELLAR_CONFIG", (missing / "stellar-tests-no-config").string().c_str(), 1);
+  stellar::test::setenv_for_test("STELLAR_CONFIG", (missing / "stellar-tests-no-config").string().c_str());
 }
 
 STELLAR_TEST(Tui, ApplyingSettingsWritesThemToTheConfigFile) {
@@ -831,7 +831,7 @@ STELLAR_TEST(Tui, ApplyingSettingsWritesThemToTheConfigFile) {
   const std::string cfg = (tmp_base / "stellar-config-apply").string();
   std::error_code ec;
   std::filesystem::remove(cfg, ec);
-  setenv("STELLAR_CONFIG", cfg.c_str(), 1);
+  stellar::test::setenv_for_test("STELLAR_CONFIG", cfg.c_str());
   {
     App app;
     app.set_tree_options_for_test(1, true, false, "/proj/src", "/ext");
@@ -849,7 +849,7 @@ STELLAR_TEST(Tui, ApplyingSettingsWritesThemToTheConfigFile) {
     EXPECT_EQ(o.external_prefixes.size(), 1u);
   }
   std::filesystem::remove(cfg, ec);
-  setenv("STELLAR_CONFIG", (tmp_base / "stellar-tests-no-config").string().c_str(), 1);
+  stellar::test::setenv_for_test("STELLAR_CONFIG", (tmp_base / "stellar-tests-no-config").string().c_str());
 }
 
 STELLAR_TEST(Tui, SettingsMapOntoTheSameOptionsTheCliTakes) {

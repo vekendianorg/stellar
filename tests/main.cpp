@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
   std::filesystem::path tmp_base = std::filesystem::temp_directory_path(ec);
   if (ec || !std::filesystem::is_directory(tmp_base, ec)) tmp_base = "/tmp";
   const std::string missing_config = (tmp_base / "stellar-tests-no-config").string();
-  setenv("STELLAR_CONFIG", missing_config.c_str(), 1);
+  stellar::test::setenv_for_test("STELLAR_CONFIG", missing_config.c_str());
   if (quiet) {
     std::freopen(nullptr, "w", stdout);
   }

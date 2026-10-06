@@ -15,6 +15,16 @@
 
 namespace stellar::test {
 
+/// The MSVC runtime has no `setenv`; it has `_putenv_s(name, value)` instead.
+/// Route every override through this so both spellings compile.
+inline void setenv_for_test(const char* name, const char* value) {
+#ifdef _WIN32
+  ::_putenv_s(name, value);
+#else
+  ::setenv(name, value, 1);
+#endif
+}
+
 struct Case {
   const char* suite;
   const char* name;
