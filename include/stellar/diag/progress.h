@@ -1,0 +1,189 @@
+// SPDX-License-Identifier: MIT
+// In-place progress reporting.
+//
+// Long stages (walking 20M DIEs, building a 3M-node type graph, writing a
+// 300 MB dump) look like a hang without feedback. This writes a single
+// terminal line that is rewritten in place with a carriage return, e.g.
+//
+//   [ 24%] DIEs: 12,450/50,000 (24%) | Types: 1,203/4,800 | Stage: DWARF
+//
+// Design constraints:
+//   * cheap when disabled -- the hot path is one predictable branch, so adding
+//     progress to a 20M-iteration loop costs nothing measurable
+//   * cheap when enabled -- the clock is read at most every few thousand
+//     updates rather than per update, and rendering reuses one buffer
+//   * generic -- counters are named by the caller, nothing here knows what a
+//     DIE or a field is
+//   * tidy -- the line is erased before any error or summary is printed
+#pragma once
+
+#include <atomic>
+#include <cstddef>
+#include <cstdint>
+#include <mutex>
+#include <string>
+#include <string_view>
+
+namespace stellar::diag {
+
+class Progress {
+ public:
+  /// A counter shown on the status line. `label` must outlive the reporter, so
+  /// callers pass string literals rather than built strings.
+  ///
+  /// The numbers are relaxed atomics so that a *reader* on another thread -- the
+  /// TUI, which polls counters while the analysis thread is still inside
+  /// build_model() -- can read a consistent-enough number without a lock. This
+  /// matches the convention already used by diag/metrics.h: relaxed atomics on
+  /// hot paths that must not serialise. Relaxed is the right order because
+  /// these are display counters, not synchronisation: the only requirement is
+  /// that a reader does not observe a torn value, and a value that is a few
+  /// hundred milliseconds stale is still the truth.
+  ///
+  /// A stage may also report from several threads at once -- the tree writer
+  /// fans out over one thread per core -- so the table is append-only and every
+  /// slot is published before it is counted: `label` is written first and
+  /// `count_` is raised last, both with release ordering, which is what lets
+  /// find() read the table without a lock while another thread appends to it.
+  /// Creating a counter (a rare, first-sight event) and drawing (which owns the
+  /// shared status buffer) are the only operations that take the mutex.
+  struct Counter {
+    std::atomic<const char*> label{nullptr};
+    std::atomic<std::uint64_t> value{0};
+    std::atomic<std::uint64_t> total{0};
+    std::atomic<bool> has_total{false};
+  };
+
+  static constexpr std::size_t kMaxCounters = 6;
+
+  /// The process-wide reporter. A single instance keeps the hot paths free of
+  /// plumbing while still being one self-contained, testable type.
+  static Progress& instance();
+
+  /// `auto` (the default) draws only when stderr is a terminal, so redirected
+  /// output does not fill up with carriage returns.
+  void configure(bool force, int min_interval_ms);
+  void set_enabled(bool on) { enabled_.store(on, std::memory_order_relaxed); }
+  [[nodiscard]] bool enabled() const { return enabled_.load(std::memory_order_relaxed); }
+  /// True when the status line will be erased with an ANSI sequence.
+  [[nodiscard]] bool ansi() const { return ansi_; }
+  /// Detected terminal width, or 0 when it could not be determined.
+  [[nodiscard]] int width() const { return width_; }
+  /// Suppresses drawing while still counting. Used by the tests, which assert
+  /// on render() and would otherwise scribble on stderr.
+  void set_draw_enabled(bool on) {
+    draw_enabled_.store(on, std::memory_order_relaxed);
+  }
+
+  /// Selects which counter the percentage is taken from (the first one with a
+  /// known total, unless named).
+  void primary(const char* label);
+
+  /// Sets the text shown after `Stage:`.
+  void stage(std::string_view name);
+
+  /// Declares a counter. Safe to call repeatedly with the same label.
+  void declare(const char* label, std::uint64_t total, bool has_total = true);
+
+  /// Adds to a counter and redraws if the interval has elapsed.
+  void add(const char* label, std::uint64_t n = 1);
+  /// Sets a counter outright and redraws if the interval has elapsed.
+  void set(const char* label, std::uint64_t value);
+
+  /// Reads one counter. Safe to call from a thread other than the one running
+  /// the analysis, and specifically safe to call *while* that thread is blocked
+  /// inside a long phase: the counters are relaxed atomics, so the read needs
+  /// no lock and cannot observe a torn value.
+  ///
+  /// This exists for the TUI, which cannot afford a progress bar that freezes
+  /// for the twenty seconds build_model() takes. Returns false when `label` has
+  /// not been declared. `total` and `has_total` are optional.
+  [[nodiscard]] bool get(const char* label, std::uint64_t& value,
+                         std::uint64_t* total = nullptr,
+                         bool* has_total = nullptr) const;
+
+  /// Free-form extra text appended after the counters, e.g. the current unit.
+  void note(std::string_view text);
+
+  /// Redraws immediately (used at stage boundaries, where a slower update is
+  /// worth it so the user sees the change).
+  void checkpoint();
+
+  /// Erases the status line without printing anything else.
+  void clear_line();
+
+  /// Ends in-place reporting for good: terminates the status row with a newline
+  /// (if one was drawn) so that whatever the caller prints next starts on a
+  /// clean line instead of landing in the middle of the status text.
+  void finish();
+
+  /// Clears the line and prints `line` followed by a newline: the completion
+  /// summary, or an error that interrupted the run.
+  void finish_line(std::string_view line);
+  void fail(std::string_view message);
+
+  /// Composes the current status line (exposed for tests).
+  [[nodiscard]] std::string render() const;
+
+  /// Resets counters, stage and totals; used between runs and by tests.
+  void reset();
+
+ private:
+  Progress() = default;
+  [[nodiscard]] int find(const char* label) const;
+  [[nodiscard]] bool primary_value(std::uint64_t& value, std::uint64_t& total) const;
+  /// Appends a counter, or returns the index of the existing one. Takes mutex_.
+  /// Returns -1 when the table is full.
+  int declare_locked(const char* label, std::uint64_t total, bool has_total);
+  /// Redraws the status line. The caller must hold mutex_.
+  void draw_locked();
+  /// Composes the current line. The caller must hold mutex_.
+  [[nodiscard]] std::string render_locked() const;
+  /// Erases the status line. The caller must hold mutex_.
+  void clear_line_locked();
+
+  /// Guards the table's shape, the stage/note text, the shared render buffer and
+  /// the drawing state. Counter *values* never need it: they are atomics, so a
+  /// hot loop and the UI thread both read and count without taking a lock.
+  mutable std::mutex mutex_;
+  Counter counters_[kMaxCounters]{};
+  /// Slots published so far. Raised with release ordering only after a slot is
+  /// completely filled, so a lock-free reader can never see a half-made counter.
+  std::atomic<std::size_t> count_{0};
+  const char* primary_ = nullptr;
+  std::string stage_;
+  std::string note_;
+  /// Scratch space for render(), which is const so callers can ask for the
+  /// current line without disturbing the reporter.
+  mutable std::string buffer_;
+  std::size_t last_len_ = 0;  ///< width of the last drawn line, for erasing
+  /// Terminal width, 0 when unknown. The rendered line is clamped to this so
+  /// it can never wrap: a wrapped status line is what leaves stale fragments
+  /// behind, because a later carriage return only returns to the start of the
+  /// row the cursor is already on.
+  int width_ = 0;
+  /// Whether the terminal understands ANSI erase-line. When it does, the row is
+  /// wiped wholesale instead of being overpainted with spaces.
+  bool ansi_ = false;
+  /// Counts add() calls so the clock is read once per kCheckEvery rather than
+  /// per call. Atomic because several threads may be counting at once, and a
+  /// shared counter that is a few calls out of step only changes how often the
+  /// line is redrawn.
+  std::atomic<std::uint64_t> since_check_{0};
+  std::int64_t last_draw_ms_ = 0;
+  int interval_ms_ = 80;
+  /// Read by the hot path without the mutex, so a hot loop stays cheap when the
+  /// reporter is off; only configure()/set_enabled() write it.
+  std::atomic<bool> enabled_{false};
+  std::atomic<bool> draw_enabled_{true};
+  bool drawn_ = false;
+  /// Whether the line is out of date. Written by whichever thread is counting,
+  /// so it is atomic rather than another member the mutex would have to cover.
+  std::atomic<bool> dirty_{false};
+};
+
+/// Shorthand for the process-wide reporter, for the short call sites that sit
+/// in hot loops and should not have to spell out `Progress::instance()`.
+inline Progress& progress() { return Progress::instance(); }
+
+}  // namespace stellar::diag

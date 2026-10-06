@@ -1,0 +1,56 @@
+# ---- build output ----
+# Anchored to the repository root: an unanchored "output/" would also match
+# src/output/ and silently drop the emitter from every commit.
+/build/
+/build-*/
+/cmake-build-*/
+/out/
+CMakeUserPresets.json
+/CMakeCache.txt
+/CMakeFiles/
+compile_commands.json
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.pdb
+*.ilk
+*.exp
+# The DWARF fixtures under tests/fixtures are real test inputs, not build
+# output, so the *.so rule above must not swallow them.
+!/tests/fixtures/**/*.so
+
+# --- temporary files ---
+/temp/
+TODO.md
+
+# ---- generated dumps: hundreds of MB, regenerate with `stellar emit` ----
+# Dumps are not source, so *.cs is ignored wholesale; the format reference
+# that used to live here as a 58 MB .c file is not carried in the repository.
+/output/
+*.cs
+
+# ---- sample binaries and memory dumps (never commit) ----
+*.bin
+*.apk
+*.oat
+*.vdex
+# Stellar emits its dump as a zip archive; the archive is a build artifact, not source.
+*.zip
+
+# ---- editor / OS noise ----
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+*.patch
+# Build products in the repo root (scripts/build.sh output).
+/stellar
+/stellar-tests

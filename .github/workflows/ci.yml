@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Fast suite on the three desktop platforms. No sample binary is needed: the
+  # default run uses synthetic fixtures, so this stays small and hermetic.
+  build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      # No generator is named here on purpose. GitHub's windows-latest image
+      # moved to windows-2025, where the installed toolchain is Visual Studio
+      # 2025 (generator "Visual Studio 18 2025"). Requesting "Visual Studio
+      # 17 2022" fails with "could not find any instance of Visual Studio" as
+      # soon as that image changes. The `windows` preset leaves the generator
+      # unset, so CMake selects the newest Visual Studio actually installed.
+      - name: Locate Visual Studio
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path $vswhere)) { throw "vswhere.exe not found" }
+          $instances = & $vswhere -products * -format value -property installationPath
+          if (-not $instances) { throw "No Visual Studio instance found on this image" }
+          "Visual Studio installation(s):"
+          $instances | ForEach-Object { "  $_" }
+
+      - name: Configure (MSVC)
+        if: runner.os == 'Windows'
+        run: cmake --preset windows
+
+      - name: Configure (Ninja)
+        if: runner.os != 'Windows'
+        run: cmake --preset release
+
+      - name: Build (MSVC)
+        if: runner.os == 'Windows'
+        run: cmake --build --preset windows --config Release
+
+      - name: Build (Ninja)
+        if: runner.os != 'Windows'
+        run: cmake --build --preset release
+
+      - name: Test (MSVC)
+        if: runner.os == 'Windows'
+        run: ctest --preset windows -C Release --output-on-failure
+
+      - name: Test (Ninja)
+        if: runner.os != 'Windows'
+        run: ctest --preset default --output-on-failure
+
+      - name: Smoke test the dumper on a real ELF (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          # /bin/ls is an ELF64 shared object on Ubuntu and always present.
+          ./build/release/stellar info /bin/ls | head -20
+          ./build/release/stellar info /bin/ls | grep -q 'ELF64'
+
+  # The version compiled into the binary must match the release tag, so
+  # `--version` can never quietly report a stale release again.
+  verify-version:
+    name: Verify version matches tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compare project version with the git tag
+        run: |
+          set -euo pipefail
+          declared=$(sed -n 's/^project(.* VERSION \([0-9.]*\)).*/\1/p' CMakeLists.txt)
+          if [ -z "$declared" ]; then
+            echo "could not read PROJECT_VERSION from CMakeLists.txt" >&2
+            exit 1
+          fi
+          echo "CMakeLists.txt declares: $declared"
+          # On a tag build the tag must match; on a branch build the tag is
+          # simply the most recent release, which is informative rather than
+          # enforced.
+          head=$(git describe --tags --exact-match 2>/dev/null || true)
+          if [ -n "$head" ]; then
+            tagged=${head#v}
+            if [ "$declared" != "$tagged" ]; then
+              echo "version mismatch: CMakeLists.txt says $declared but tag $head says $tagged" >&2
+              exit 1
+            fi
+            echo "matches tag $head"
+          else
+            echo "not a tag build; skipping the equality check"
+          fi
+
+  # Android/ARM64, where the sample binary actually comes from. Runs on the
+  # project's own hardware via self-hosted runner; skipped when none is attached.
+  android-arm64:
+    name: Android aarch64 (self-hosted)
+    runs-on: [self-hosted, android, arm64]
+    if: ${{ github.repository_owner == 'VEKENDIAN' }}
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build (Termux/proot)
+        run: sh scripts/build.sh
+      - name: Test
+        run: sh scripts/test.sh
