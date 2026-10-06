@@ -9,7 +9,7 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-RUN_DIR="${STELLAR_RUN_DIR:-${TMPDIR:-/tmp}/stellar-run}"
+RUN_DIR="${STELLAR_RUN_DIR:-$ROOT}"
 T="$RUN_DIR/stellar-tests"
 [ -x "$T" ] || T="$ROOT/build/tests/stellar-tests"
 

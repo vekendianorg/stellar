@@ -11,7 +11,7 @@ VER_MINOR=${VER_REST%%.*}; VER_PATCH=${VER_REST#*.}
 VDEF="-DSTELLAR_VERSION=\"$VER\" -DSTELLAR_VERSION_MAJOR=$VER_MAJOR"
 VDEF="$VDEF -DSTELLAR_VERSION_MINOR=$VER_MINOR -DSTELLAR_VERSION_PATCH=$VER_PATCH"
 tests/tests_tui/build.sh /tmp/frame_dump
-SRCS=$(ls src/util/*.cpp src/diag/*.cpp src/elf/*.cpp src/dwarf/*.cpp src/ir/*.cpp src/output/*.cpp src/tui/*.cpp src/app/main.cpp)
+SRCS=$(ls src/util/*.cpp src/diag/*.cpp src/elf/*.cpp src/dwarf/*.cpp src/ir/*.cpp src/output/*.cpp src/tui/*.cpp src/app/main.cpp src/disasm/*.cpp)
 g++ -std=c++20 -O1 -Iinclude $VDEF $SRCS -o /tmp/stellar -pthread
 echo "== size sweep 1x1..160x50, colour, all 8 screens";    /tmp/frame_dump 160 50 1 | python3 tests/tests_tui/vt.py
 echo "== size sweep 1x1..100x30, no colour";                /tmp/frame_dump 100 30 0 | python3 tests/tests_tui/vt.py
@@ -25,7 +25,7 @@ W=$(mktemp -d); cp tests/tests_tui/fixture.cpp "$W/t.cpp"
 echo "== RAM limit is a real soft cap"
 ROOT=$PWD
 g++ -std=c++20 -O1 -Iinclude $VDEF \
-  src/util/*.cpp src/diag/*.cpp src/elf/*.cpp src/dwarf/*.cpp src/ir/*.cpp src/output/*.cpp src/tui/analysis.cpp src/tui/dwarfview.cpp \
+  src/util/*.cpp src/diag/*.cpp src/elf/*.cpp src/dwarf/*.cpp src/ir/*.cpp src/output/*.cpp src/tui/analysis.cpp src/tui/dwarfview.cpp src/disasm/*.cpp \
   tests/tests_tui/ram_cap.cpp -o /tmp/ram_cap -pthread
 /tmp/ram_cap "$W/libdemo.so" "$W/cap.cs" | grep -E "^(PASS|FAIL)"
 echo "== real binary: full flow on a real ELF (autofill, probe, browse, scan, emit)"

@@ -1,7 +1,7 @@
 #!/bin/sh
 # Builds the frame-dump harness without CMake. Usage: tests_tui/build.sh [out]
 cd "$(dirname "$0")/../.." || exit 1
-SRCS=$(ls src/util/*.cpp src/diag/*.cpp src/elf/*.cpp src/dwarf/*.cpp src/ir/*.cpp src/output/*.cpp src/tui/*.cpp)
+SRCS=$(ls src/util/*.cpp src/diag/*.cpp src/elf/*.cpp src/dwarf/*.cpp src/ir/*.cpp src/output/*.cpp src/tui/*.cpp src/disasm/*.cpp)
 # The version is read from CMakeLists.txt rather than written out here. A second
 # copy of the number is a second thing to forget at release time, and the CI
 # "Verify version matches tag" job only guards CMakeLists.txt -- a stale copy

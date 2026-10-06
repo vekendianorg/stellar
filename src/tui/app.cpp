@@ -457,8 +457,8 @@ int App::header_rows(int cols, int rows, ScreenId id) noexcept {
   // and optional blocks (file facts, spare gaps) drop before the logo does.
   int need = 12;
   switch (id) {
-    case ScreenId::kMain: need = 13; break;      // input 5 + menu 6 + output 2
-    case ScreenId::kEmit: need = 11; break;
+    case ScreenId::kMain: need = 15; break;      // input 5 + menu 6 + output box 4
+    case ScreenId::kEmit: need = 14; break;      // input + output box + options + note
     case ScreenId::kAnalysis: need = 14; break;
     case ScreenId::kComplete: need = 14; break;
     case ScreenId::kSettings: need = 16; break;
@@ -931,7 +931,7 @@ void App::paint_main(Screen& s, const Region& r) const {
   constexpr int kInputRows = 5;  // section + a three-row framed field + its status line
   constexpr int kMenuRows = 6;   // section + five actions
   constexpr int kFileRows = 6;   // section + five facts
-  constexpr int kOutRows = 4;    // section + a three-row framed field
+  constexpr int kOutRows = 2;    // section + one editable line
   const int h = r.bottom - r.top;
 
   // Optional block: file facts. The logo header was already budgeted by
@@ -1023,10 +1023,9 @@ void App::paint_main(Screen& s, const Region& r) const {
     if (out_path_.text.empty() && !on) {
       pen.text("  Path: " + output_path() + "  (default)", Style::kMuted);
     } else {
-      s.box(pen.row(), r.left, r.width, 3,
-            on ? Style::kActiveBorder : Style::kBorder);
-      draw_field(s, pen.row() + 1, r.left + 1, r.width - 2, out_path_, "Path: ", on);
-      pen.blank(3);
+      draw_field(s, pen.row(), r.left, r.width, out_path_,
+                 on ? std::string(kPoint) + " Path: " : std::string("  Path: "), on);
+      pen.blank(1);
     }
   }
 }

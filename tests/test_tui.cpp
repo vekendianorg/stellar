@@ -437,7 +437,7 @@ STELLAR_TEST(Tui, FooterMatchesThePanelAndKeepsTheWayOut) {
   const auto menu_rows =
       lines_of(app.render_frame_for_test(80, 24, snap, ScreenId::kMain));
   const std::string& menu_footer = menu_rows[menu_rows.size() - 2];
-  for (const char* word : {"Navigate", "Select", "Switch Panel", "Run", "Help",
+  for (const char* word : {"Navigate", "Select", "Switch Panel", "Help",
                            "Quit"}) {
     EXPECT_TRUE(contains(menu_footer, word));
   }
@@ -893,11 +893,11 @@ STELLAR_TEST(Tui, EmitScreenTogglesShareTheSettingsScreensValues) {
   // One set of values behind both screens: they cannot disagree about what a run
   // will do, which is the whole reason the rows live here at all.
   app.handle_key_for_test(Event{Key::kTab, {}});
-  // "Generate C# dump" is the fourth action; r runs the highlighted one.
+  // "Generate Dump" is the fourth action; Enter opens it.
   app.handle_key_for_test(Event{Key::kDown, {}});
   app.handle_key_for_test(Event{Key::kDown, {}});
   app.handle_key_for_test(Event{Key::kDown, {}});
-  app.handle_key_for_test(Event{Key::kChar, "r"});
+  app.handle_key_for_test(Event{Key::kEnter, {}});
   EXPECT_TRUE(app.screen() == ScreenId::kEmit);
   app.focus_emit_item_for_test(EmitItem::kIncludeExternal);
   app.handle_key_for_test(Event{Key::kChar, " "});
