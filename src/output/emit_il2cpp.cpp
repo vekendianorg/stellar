@@ -138,6 +138,7 @@ void emit_il2cpp(const ir::Model& model, std::FILE* out, const EmitOptions& opts
   struct BodyTask { std::uint64_t addr; std::uint64_t size; bool dwarf_range; };
   std::vector<BodyTask> tasks;
   if (opts.bodies != nullptr) {
+    pr.stage("Disassembling bodies");
     tasks.reserve(model.methods.size());
     for (const ir::Method& m : model.methods) {
       tasks.push_back({m.addr, m.has_range ? m.size : 0,
@@ -165,6 +166,7 @@ void emit_il2cpp(const ir::Model& model, std::FILE* out, const EmitOptions& opts
     }
   }
 
+  pr.stage("Writing dump");
   line("// " + std::string(kHeader1));
   line("// " + std::string(kHeader2));
   line("// " + std::string(kHeader3));

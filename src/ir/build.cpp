@@ -650,6 +650,7 @@ bool build_model(DwarfContext& ctx, const BuildOptions& opts, Model& model,
   std::string err;
 
   // ------------------------------------------------------------------ pass A --
+  pr.stage("Walking DIEs");
   while (it.next(h, &err)) {
     if (opts.max_units != 0 && st.units >= opts.max_units) break;
     const AbbrevTable* ab = ctx.abbrev_table(h, &err);
