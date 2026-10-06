@@ -718,7 +718,9 @@ bool emit_tree(const ir::Model& model, const TreeOptions& opts, TreeStats* stats
     const fs::path canon_dir = fs::weakly_canonical(dir, ec);
     ec.clear();
     const std::string cr = canon_root.string(), cd = canon_dir.string();
-    if (cr.empty() || cd.compare(0, cr.size(), cr) != 0 || (cd.size() > cr.size() && cd[cr.size()] != '/')) {
+    const char sep = fs::path::preferred_separator;
+    if (cr.empty() || cd.compare(0, cr.size(), cr) != 0 ||
+        (cd.size() > cr.size() && cd[cr.size()] != sep && cd[cr.size()] != '/')) {
       std::fprintf(stderr, "error: refusing to write outside the output root: %s\n", rel.c_str());
       ok_ = false;
       goto group_end;
