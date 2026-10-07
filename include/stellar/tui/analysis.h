@@ -91,6 +91,15 @@ struct AnalysisSnapshot {
   uint64_t types = 0;
   uint64_t fields = 0;
   uint64_t methods = 0;
+  /// Totals where the core stages already know them; 0 = not yet.
+  uint64_t types_total = 0;
+  /// Results from the --bodies=asm worker pool (bytes disassembled or method
+  /// numbers?). Worth keeping separate from methods: the pool finishes before
+  /// the dump is written, and the UI should show that motion.
+  uint64_t bodies = 0;
+  uint64_t bodies_total = 0;
+  /// Header probe entries that did not parse, reported after discovery.
+  uint64_t skipped_units = 0;
 
   /// Output written so far; final once Phase::kEmitting completes.
   uint64_t out_bytes = 0;

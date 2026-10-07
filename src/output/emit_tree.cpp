@@ -679,6 +679,7 @@ bool emit_tree(const ir::Model& model, const TreeOptions& opts, TreeStats* stats
   // ---- write the files, streaming one at a time ---------------------------
   pr.stage("Writing tree");
   pr.set("Types", 0);
+  pr.declare("Bodies", 0, false);
   pr.declare("Files", static_cast<std::uint64_t>(groups.size()));
   pr.declare("Methods", 0, false);
   pr.primary("Files");
@@ -757,6 +758,7 @@ bool emit_tree(const ir::Model& model, const TreeOptions& opts, TreeStats* stats
         const BodyBlock b =
             make_body(*opts.bodies, m.addr, m.has_range ? m.size : 0,
                       m.has_range ? RangeSource::kDwarf : RangeSource::kNone);
+        pr.add("Bodies");
         const std::string h = b.header();
         if (!h.empty()) o.line("// " + h);
         for (const std::string& l : b.lines) o.line("//   " + l);
@@ -778,6 +780,7 @@ bool emit_tree(const ir::Model& model, const TreeOptions& opts, TreeStats* stats
           const BodyBlock b =
               make_body(*opts.bodies, ff.addr, ff.has_range ? ff.size : 0,
                         ff.has_range ? RangeSource::kDwarf : RangeSource::kNone);
+          pr.add("Bodies");
           const std::string h = b.header();
           if (!h.empty()) o.line("// " + h);
           for (const std::string& l : b.lines) o.line("//   " + l);
@@ -808,6 +811,7 @@ bool emit_tree(const ir::Model& model, const TreeOptions& opts, TreeStats* stats
       if (opts.bodies != nullptr) {
         const BodyBlock b = make_body(*opts.bodies, od.addr, od.has_range ? od.size : 0,
                                       od.has_range ? RangeSource::kDwarf : RangeSource::kNone);
+        pr.add("Bodies");
         const std::string h = b.header();
         if (!h.empty()) o.line("// " + h);
         for (const std::string& l : b.lines) o.line("//   " + l);

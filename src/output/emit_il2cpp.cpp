@@ -147,6 +147,15 @@ void emit_il2cpp(const ir::Model& model, std::FILE* out, const EmitOptions& opts
     const unsigned hw = std::thread::hardware_concurrency();
     const unsigned n = std::max(1u, std::min<unsigned>(hw == 0 ? 4 : hw, 8u));
     std::vector<BodyBlock> out_blocks(tasks.size());
+    if (!tasks.empty()) {
+      // Counter for the visible note-row: the table-shown Bodies row is not
+      // derived from "Methods", because the pool can finish well before and
+      // later than the written methods arrive.
+      auto& pr2 = diag::progress();
+      pr2.declare("Bodies", tasks.size());
+      pr2.set("Bodies", 0);
+      pr2.primary("Bodies");
+    }
     std::atomic<std::size_t> next{0};
     std::vector<std::thread> ts;
     for (unsigned i = 0; i < n; ++i) ts.emplace_back([&]() {
@@ -156,6 +165,7 @@ void emit_il2cpp(const ir::Model& model, std::FILE* out, const EmitOptions& opts
         out_blocks[j] = make_body(*opts.bodies, tasks[j].addr, tasks[j].size,
                                   tasks[j].dwarf_range ? RangeSource::kDwarf
                                                       : RangeSource::kNone);
+        pr.add("Bodies");
       }
     });
     for (auto& t : ts) t.join();

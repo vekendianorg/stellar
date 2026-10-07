@@ -1203,10 +1203,16 @@ void App::paint_analysis(Screen& s, const Region& r) const {
   }
 
   // --- counters ------------------------------------------------------------
-  pen.field("DIEs", group(k.dies), Style::kNumber);
-  pen.field("Types", group(k.types), Style::kNumber);
+  pen.field("DIEs", group(k.dies) + (k.dies_total ? " / " + group(k.dies_total) : ""), Style::kNumber);
+  pen.field("Types", group(k.types) + (k.types_total ? " / " + group(k.types_total) : ""), Style::kNumber);
   pen.field("Fields", group(k.fields), Style::kNumber);
-  pen.field("Methods", group(k.methods), Style::kNumber);
+  pen.field("Methods", group(k.methods) + (k.methods_total ? " / " + group(k.methods_total) : ""), Style::kNumber);
+  if (k.bodies != 0 || k.bodies_total != 0) {
+    pen.field("Bodies", group(k.bodies) + (k.bodies_total ? " / " + group(k.bodies_total) : ""), Style::kNumber);
+  }
+  if (k.skipped_units != 0) {
+    pen.field("Skipped units", group(k.skipped_units), Style::kNumber);
+  }
   if (k.out_files_total != 0) {
     pen.field("Files", group(k.out_files) + " / " + group(k.out_files_total), Style::kNumber);
   }

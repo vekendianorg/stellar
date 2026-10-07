@@ -215,9 +215,13 @@ AnalysisSnapshot Analysis::snapshot() const {
     if (pr.get("DIEs", v)) copy.dies = v;
     if (pr.get("DIEs", v, &total, nullptr) && total != 0) copy.dies_total = total;
     if (pr.get("Types", v)) copy.types = v;
+    if (pr.get("Types", v, &total, nullptr) && total != 0) copy.types_total = total;
     if (pr.get("Fields", v)) copy.fields = v;
     if (pr.get("Methods", v)) copy.methods = v;
+    if (pr.get("Methods", v, &total, nullptr) && total != 0) copy.methods_total = total;
     if (pr.get("Lines", v)) copy.out_lines = v;
+    if (pr.get("Bodies", v)) copy.bodies = v;
+    if (pr.get("Bodies", v, &total, nullptr) && total != 0) copy.bodies_total = total;
     if (pr.get("Files", v)) copy.out_files = v;
     if (pr.get("Files", v, &total, nullptr) && total != 0) copy.out_files_total = total;
     // The core reports no per-unit note while it builds, but its Units counter
@@ -386,6 +390,9 @@ void Analysis::run(StartOptions o) {
       if (parse_counter(line, "Methods", v)) s.methods = v;
       if (parse_counter(line, "Lines", v)) s.out_lines = v;
       if (parse_counter(line, "Files", v)) s.out_files = v;
+      if (parse_counter(line, "Bodies", v)) s.bodies = v;
+      // Types/Methods totals are pulled directly from diag::progress()
+      // elsewhere: diag::progress().render() only carries the primary counter.
       const std::string core_stage = parse_stage(line);
       s.current_note = core_stage.empty() ? std::move(note) : core_stage;
       s.rss_bytes = diag::current_rss_bytes();
@@ -491,6 +498,7 @@ void Analysis::run(StartOptions o) {
         sample("compilation unit " + std::to_string(it.index()) + " of " +
                std::to_string(unit_total));
       }
+      publish([&](AnalysisSnapshot& s) { s.skipped_units = it.skipped_errors(); });
       if (cancelled()) {
         settle_cancelled();
         return;
